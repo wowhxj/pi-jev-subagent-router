@@ -1,6 +1,6 @@
 import { choice, TypeSafeClient } from "@typesafe-ai/sdk";
 import type { ExtensionAPI, ToolCallEvent } from "@earendil-works/pi-coding-agent";
-import { prepareTask, resolveMode, selectCandidate } from "../src/router.js";
+import { formatProbabilities, prepareTask, resolveMode, selectCandidate } from "../src/router.js";
 
 type Candidate = { id: string; name: string };
 
@@ -70,7 +70,8 @@ export default function (pi: ExtensionAPI) {
 
       const isShadow = mode() !== "active";
       runDecisions.set(event.toolCallId, { selectedModel: decision.id, shadow: isShadow });
-      console.info(`[jev-router] ${isShadow ? "shadow" : "route"}: ${decision.id} (confidence ${decision.confidence.toFixed(2)})`);
+      const probabilities = formatProbabilities(result.answers.model, candidates);
+      console.info(`[jev-router] ${isShadow ? "shadow" : "route"}: selected=${decision.id}, choice-confidence=${decision.confidence.toFixed(2)}, probabilities={${probabilities}}`);
       if (!isShadow) input.model = decision.id;
     } catch (error) {
       const kind = error instanceof Error ? error.name : "unknown error";

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { prepareTask, resolveMode, selectCandidate, shouldRoute } from "../src/router.js";
+import { formatProbabilities, prepareTask, resolveMode, selectCandidate, shouldRoute } from "../src/router.js";
 
 const candidates = [{ id: "openai/gpt-4.1", name: "General" }, { id: "anthropic/claude-sonnet", name: "Coding" }];
 
@@ -22,6 +22,13 @@ test("preserves explicit model choices and ignores empty tasks", () => {
   assert.equal(shouldRoute({ task: "review", model: "openai/gpt-4.1" }), false);
   assert.equal(shouldRoute({ task: "  " }), false);
   assert.equal(shouldRoute({ task: "review" }), true);
+});
+
+test("formats per-candidate probabilities in registry order", () => {
+  assert.equal(formatProbabilities({ probabilities: { "anthropic/claude-sonnet": 0.73, "openai/gpt-4.1": 0.27 } }, candidates),
+    "openai/gpt-4.1=0.270, anthropic/claude-sonnet=0.730");
+  assert.equal(formatProbabilities({ probabilities: { "openai/gpt-4.1": "high" } }, candidates),
+    "openai/gpt-4.1=n/a, anthropic/claude-sonnet=n/a");
 });
 
 test("accepts only a listed model from a valid Jev choice", () => {

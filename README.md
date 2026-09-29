@@ -41,4 +41,4 @@ node --test
 
 ## Current limitations
 
-Shadow-mode outcomes and final synchronous/async result metadata are logged to the Pi process console. Async completion events currently record completion state but cannot reliably associate the finished child with an earlier tool call in all `pi-subagents` execution paths. Model choice behavior and confidence are not calibrated yet; consider starting in shadow mode to assess representative tasks before relying on active routing.
+Routing logs include the selected model, TypeSafe's scalar `choice-confidence`, and the per-candidate `probabilities` distribution. Final synchronous/async result metadata is logged to the Pi process console. Async completion events currently record completion state but cannot reliably associate the finished child with an earlier tool call in all `pi-subagents` execution paths. Model choice behavior and confidence are not calibrated yet; consider starting in shadow mode to assess representative tasks before relying on active routing.

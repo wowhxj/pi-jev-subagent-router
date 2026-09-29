@@ -16,6 +16,14 @@ export function selectCandidate(answer, candidates) {
   return candidate ? { ...candidate, confidence: answer.confidence } : undefined;
 }
 
+export function formatProbabilities(answer, candidates) {
+  const probabilities = answer?.probabilities;
+  return candidates.map(({ id }) => {
+    const value = probabilities && Object.hasOwn(probabilities, id) ? probabilities[id] : undefined;
+    return `${id}=${Number.isFinite(value) ? value.toFixed(3) : "n/a"}`;
+  }).join(", ");
+}
+
 export function resolveMode(value) {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   return normalized === "off" || normalized === "shadow" ? normalized : "active";
