@@ -83,9 +83,11 @@ export default function (pi: ExtensionAPI) {
     const decision = runDecisions.get(event.toolCallId);
     if (!decision) return;
     runDecisions.delete(event.toolCallId);
-    const details = event.details as { model?: unknown; requestedModel?: unknown; progressSummary?: { durationMs?: unknown } } | undefined;
-    const actualModel = typeof details?.model === "string" ? details.model : "unreported (async or unavailable)";
-    const duration = typeof details?.progressSummary?.durationMs === "number" ? `, ${details.progressSummary.durationMs}ms` : "";
+    const details = event.details as { model?: unknown; results?: Array<{ model?: unknown; progressSummary?: { durationMs?: unknown } }>; progressSummary?: { durationMs?: unknown } } | undefined;
+    const child = details?.results?.[0];
+    const actualModel = typeof details?.model === "string" ? details.model : typeof child?.model === "string" ? child.model : "unreported (async or unavailable)";
+    const durationMs = details?.progressSummary?.durationMs ?? child?.progressSummary?.durationMs;
+    const duration = typeof durationMs === "number" ? `, ${durationMs}ms` : "";
     console.info(`[jev-router] result: selected=${decision.selectedModel}, actual=${actualModel}${duration}${decision.shadow ? " (shadow; unchanged)" : ""}`);
   });
 
@@ -93,7 +95,11 @@ export default function (pi: ExtensionAPI) {
   pi.events.on("subagent:async-complete", (payload) => {
     if (!payload || typeof payload !== "object") return;
     const data = payload as { runId?: unknown; state?: unknown; success?: unknown; results?: unknown };
-    console.info(`[jev-router] async result: run=${String(data.runId ?? "unknown")}, state=${String(data.state ?? "unknown")}, success=${String(data.success ?? "unknown")}`);
+    const models = Array.isArray(data.results)
+      ? [...new Set(data.results.flatMap((result) => result && typeof result === "object" && typeof (result as { model?: unknown }).model === "string" ? [(result as { model: string }).model] : []))]
+      : [];
+    const modelSummary = models.length ? `, models=${models.join(",")}` : "";
+    console.info(`[jev-router] async result: run=${String(data.runId ?? "unknown")}, state=${String(data.state ?? "unknown")}, success=${String(data.success ?? "unknown")}${modelSummary}`);
   });
 }
 
