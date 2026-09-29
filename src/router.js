@@ -22,6 +22,15 @@ export function filterCandidates(candidates, selectedIds) {
   return candidates.filter(({ id }) => selected.has(id));
 }
 
+export function filterModelsByQuery(models, query) {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return models;
+  return models.filter(({ id, name }) => {
+    const searchable = `${id} ${name}`.toLowerCase();
+    return terms.every((term) => searchable.includes(term));
+  });
+}
+
 export function formatProbabilities(answer, candidates) {
   const probabilities = answer?.probabilities;
   return candidates.map(({ id }) => {

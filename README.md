@@ -24,7 +24,7 @@ The extension package installs the TypeSafe SDK dependency. `pi-subagents` is in
 - `shadow`: ask Jev and log its proposed model, but leave dispatch unchanged.
 - `off`: disable routing.
 
-Set `PI_JEV_SUBAGENT_ROUTER=active|shadow|off`. Unknown or unset values use `active`. Select available candidates from the current Pi model registry; when Pi has scoped models configured, only those candidates are considered. With fewer than two available candidates, routing is skipped.
+Set `PI_JEV_SUBAGENT_ROUTER=active|shadow|off`. Unknown or unset values use `active`. Select available candidates from the current Pi model registry; when Pi has scoped models configured, only those candidates are considered. Jev needs at least two candidates to make a choice; a single explicitly selected model is dispatched directly.
 
 ```sh
 export TYPESAFE_API_KEY=...
@@ -33,7 +33,7 @@ export PI_JEV_SUBAGENT_ROUTER=active
 
 Set `PI_JEV_ROUTER_MAX_TASK_CHARS` to adjust the transmitted task limit (256–12000, default 4000).
 
-Use `/jev-router-models` in Pi's interactive UI to toggle the models eligible for Jev routing. The menu includes **Select all available models** and **Select no models** bulk actions. The selection is saved in `<agent-dir>/jev-subagent-router.json` and applies across projects. Until a selection is saved, all available (or session-scoped) models remain eligible. Choose **Use all available models (clear selection)** to restore that default. The picker uses Pi's `getAvailable()` model set (providers with configured auth and models Pi reports available), not every catalog entry; this still cannot guarantee that an individual model is enabled for the account or currently reachable. With one explicitly selected model, the extension routes directly to it without a Jev call; with no selected model, routing is skipped. Jev itself needs at least two eligible models.
+Use `/jev-router-models` in Pi's interactive UI to toggle the models eligible for Jev routing. The picker stays open when you toggle a model, so the current filter is preserved. Type one or more search terms, use `C-n`/`C-p` or the arrow keys to navigate, and press Enter to toggle without clearing the filter. The menu includes **Select all available models** and **Select no models** bulk actions. The selection is saved in `<agent-dir>/jev-subagent-router.json` and applies across projects. Until a selection is saved, all available (or session-scoped) models remain eligible. Choose **Use all available models (clear selection)** to restore that default. The picker uses Pi's `getAvailable()` model set (providers with configured auth and models Pi reports available), not every catalog entry; this still cannot guarantee that an individual model is enabled for the account or currently reachable. With one explicitly selected model, the extension routes directly to it without a Jev call; with no selected model, routing is skipped. Jev itself needs at least two eligible models.
 
 The extension sends task text to TypeSafe's API after redacting common email, bearer-token, API-key, token, password, and secret patterns. Redaction is best-effort, not a privacy boundary; do not enable this for sensitive prompts unless you accept that disclosure. Task content is not written to logs. Jev requests use a 6-second timeout and no retry; failures fall back to normal Pi model selection.
 
