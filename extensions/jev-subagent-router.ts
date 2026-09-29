@@ -13,6 +13,8 @@ const DEFAULT_MAX_TASK_CHARS = 4_000;
 const REQUEST_TIMEOUT_MS = 6_000;
 const SELECTION_PATH = join(getAgentDir(), "jev-subagent-router.json");
 const SAVE_ACTION = "Save model selection";
+const SELECT_ALL_ACTION = "Select all available models";
+const SELECT_NONE_ACTION = "Select no models";
 const RESET_ACTION = "Use all available models (clear selection)";
 
 type RouterInput = { task?: unknown; model?: unknown };
@@ -26,8 +28,8 @@ function maxTaskChars(): number {
   return Number.isFinite(parsed) ? Math.max(256, Math.min(parsed, 12_000)) : DEFAULT_MAX_TASK_CHARS;
 }
 
-function candidatesFrom(ctx: { modelRegistry: { getAll(): Array<{ provider: string; id: string; name?: string }> }; scopedModels: readonly { model: { provider: string; id: string; name?: string } }[] }): Candidate[] {
-  const models = ctx.scopedModels.length ? ctx.scopedModels.map(({ model }) => model) : ctx.modelRegistry.getAll();
+function candidatesFrom(ctx: { modelRegistry: { getAvailable(): Array<{ provider: string; id: string; name?: string }> }; scopedModels: readonly { model: { provider: string; id: string; name?: string } }[] }): Candidate[] {
+  const models = ctx.scopedModels.length ? ctx.scopedModels.map(({ model }) => model) : ctx.modelRegistry.getAvailable();
   return models.map((model) => ({ id: `${model.provider}/${model.id}`, name: model.name || model.id }));
 }
 
@@ -64,7 +66,7 @@ async function configureModels(ctx: ExtensionCommandContext): Promise<void> {
     ctx.ui.notify("Model selection requires Pi's interactive UI.", "warning");
     return;
   }
-  const models = ctx.modelRegistry.getAll()
+  const models = ctx.modelRegistry.getAvailable()
     .map((model) => ({ id: `${model.provider}/${model.id}`, name: model.name || model.id }))
     .sort((a, b) => a.id.localeCompare(b.id));
   const existing = await readSelection();
@@ -78,8 +80,17 @@ async function configureModels(ctx: ExtensionCommandContext): Promise<void> {
       optionToId.set(label, model.id);
       return label;
     });
-    const answer = await ctx.ui.select("Toggle models included in Jev routing", [SAVE_ACTION, RESET_ACTION, ...modelOptions]);
+    const answer = await ctx.ui.select("Toggle models included in Jev routing", [SAVE_ACTION, SELECT_ALL_ACTION, SELECT_NONE_ACTION, RESET_ACTION, ...modelOptions]);
     if (!answer) return;
+    if (answer === SELECT_ALL_ACTION) {
+      selected.clear();
+      availableIds.forEach((id) => selected.add(id));
+      continue;
+    }
+    if (answer === SELECT_NONE_ACTION) {
+      selected.clear();
+      continue;
+    }
     if (answer === RESET_ACTION) {
       await clearSelection();
       ctx.ui.notify("Model selection cleared; routing will use all available models.", "info");
