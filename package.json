@@ -1,0 +1,21 @@
+{
+  "name": "pi-jev-subagent-router",
+  "version": "0.1.0",
+  "description": "Route Pi subagent model selection with TypeSafe Jev",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "pi-coding-agent", "jev", "subagents", "router"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./extensions/jev-subagent-router.ts"]
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@typesafe-ai/sdk": "^0.6.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}
+
