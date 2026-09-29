@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatProbabilities, prepareTask, resolveMode, selectCandidate, shouldRoute } from "../src/router.js";
+import { filterCandidates, formatProbabilities, prepareTask, resolveMode, selectCandidate, shouldRoute } from "../src/router.js";
 
 const candidates = [{ id: "openai/gpt-4.1", name: "General" }, { id: "anthropic/claude-sonnet", name: "Coding" }];
 
@@ -22,6 +22,12 @@ test("preserves explicit model choices and ignores empty tasks", () => {
   assert.equal(shouldRoute({ task: "review", model: "openai/gpt-4.1" }), false);
   assert.equal(shouldRoute({ task: "  " }), false);
   assert.equal(shouldRoute({ task: "review" }), true);
+});
+
+test("defaults to all candidates, or filters to the configured selection", () => {
+  assert.deepEqual(filterCandidates(candidates, undefined), candidates);
+  assert.deepEqual(filterCandidates(candidates, ["anthropic/claude-sonnet"]), [candidates[1]]);
+  assert.deepEqual(filterCandidates(candidates, []), []);
 });
 
 test("formats per-candidate probabilities in registry order", () => {

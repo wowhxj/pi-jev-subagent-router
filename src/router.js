@@ -16,6 +16,12 @@ export function selectCandidate(answer, candidates) {
   return candidate ? { ...candidate, confidence: answer.confidence } : undefined;
 }
 
+export function filterCandidates(candidates, selectedIds) {
+  if (selectedIds === undefined) return candidates;
+  const selected = new Set(selectedIds);
+  return candidates.filter(({ id }) => selected.has(id));
+}
+
 export function formatProbabilities(answer, candidates) {
   const probabilities = answer?.probabilities;
   return candidates.map(({ id }) => {

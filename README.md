@@ -31,7 +31,11 @@ export TYPESAFE_API_KEY=...
 export PI_JEV_SUBAGENT_ROUTER=active
 ```
 
-Set `PI_JEV_ROUTER_MAX_TASK_CHARS` to adjust the transmitted task limit (256–12000, default 4000). The extension sends task text to TypeSafe's API after redacting common email, bearer-token, API-key, token, password, and secret patterns. Redaction is best-effort, not a privacy boundary; do not enable this for sensitive prompts unless you accept that disclosure. Task content is not written to logs. Jev requests use a 6-second timeout and no retry; failures fall back to normal Pi model selection.
+Set `PI_JEV_ROUTER_MAX_TASK_CHARS` to adjust the transmitted task limit (256–12000, default 4000).
+
+Use `/jev-router-models` in Pi's interactive UI to toggle the models eligible for Jev routing. The selection is saved in `<agent-dir>/jev-subagent-router.json` and applies across projects. Until a selection is saved, all available (or session-scoped) models remain eligible. Choose **Use all available models (clear selection)** to restore that default. With one explicitly selected model, the extension routes directly to it without a Jev call; with no selected model, routing is skipped. Jev itself needs at least two eligible models.
+
+The extension sends task text to TypeSafe's API after redacting common email, bearer-token, API-key, token, password, and secret patterns. Redaction is best-effort, not a privacy boundary; do not enable this for sensitive prompts unless you accept that disclosure. Task content is not written to logs. Jev requests use a 6-second timeout and no retry; failures fall back to normal Pi model selection.
 
 ## Verification
 
