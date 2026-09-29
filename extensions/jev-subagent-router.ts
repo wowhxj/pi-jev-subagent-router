@@ -1,7 +1,6 @@
 import { choice, TypeSafeClient } from "@typesafe-ai/sdk";
-import { DynamicBorder, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionCommandContext, ToolCallEvent } from "@earendil-works/pi-coding-agent";
-import { Container, Input, Key, SelectList, Text, matchesKey, type SelectItem } from "@earendil-works/pi-tui";
 import { readFile, mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { filterCandidates, filterModelsByQuery, formatProbabilities, prepareTask, resolveMode, selectCandidate } from "../src/router.js";
@@ -62,8 +61,6 @@ async function clearSelection(): Promise<void> {
   }
 }
 
-type PickerResult = { action: "save"; models: string[] } | { action: "reset" } | null;
-
 async function configureModels(ctx: ExtensionCommandContext): Promise<void> {
   if (!ctx.hasUI) {
     ctx.ui.notify("Model selection requires Pi's interactive UI.", "warning");
@@ -75,124 +72,53 @@ async function configureModels(ctx: ExtensionCommandContext): Promise<void> {
   const existing = await readSelection();
   const availableIds = new Set(models.map(({ id }) => id));
   const selected = new Set(existing === undefined ? availableIds : existing.filter((id) => availableIds.has(id)));
-  const result = await ctx.ui.custom<PickerResult>((tui, theme, keybindings, done) => {
-    const actionItems: SelectItem[] = [
-      { value: "", label: SAVE_ACTION },
-      { value: "", label: SELECT_ALL_ACTION },
-      { value: "", label: SELECT_NONE_ACTION },
-      { value: "", label: RESET_ACTION },
-    ];
-    const modelItems: SelectItem[] = models.map(({ id, name }) => ({ value: "", label: "", description: name }));
-    const modelByItem = new Map(modelItems.map((item, index) => [item, models[index]]));
-    const actionByItem = new Map(actionItems.map((item, index) => [item, ["save", "all", "none", "reset"][index]]));
-    const allItems = [...actionItems, ...modelItems];
-    const modelIndexById = new Map(models.map(({ id }, index) => [id, index]));
-    const listTheme = {
-      selectedPrefix: (text: string) => theme.fg("accent", text),
-      selectedText: (text: string) => theme.fg("accent", text),
-      description: (text: string) => theme.fg("muted", text),
-      scrollInfo: (text: string) => theme.fg("dim", text),
-      noMatch: (text: string) => theme.fg("warning", text),
-    };
-    const list = new SelectList(allItems, 12, listTheme);
-    const filter = new Input({ prompt: theme.fg("accent", "Filter: "), placeholder: "type provider, model, or name" });
-    filter.focused = true;
-    const status = new Text();
-    const frame = new Container();
-    const border = new DynamicBorder((text) => theme.fg("accent", text));
-    frame.addChild(border);
-    frame.addChild(new Text(theme.fg("accent", theme.bold("Toggle models included in Jev routing"))));
-    frame.addChild(filter);
-    frame.addChild(list);
-    frame.addChild(status);
-    frame.addChild(new Text(theme.fg("dim", "C-n/C-p or ↑/↓ move • Enter toggle • Save to apply • Esc cancel")));
-    frame.addChild(new DynamicBorder((text) => theme.fg("accent", text)));
+  const filterPrompt = await ctx.ui.input("Filter available models", "Enter provider, model ID, or name (blank shows all)");
+  if (filterPrompt === undefined) return;
+  let query = filterPrompt.trim();
 
-    let query = "";
-    let visibleItems: SelectItem[] = [];
-    const labelModel = (item: SelectItem, id: string) => {
-      item.label = `${selected.has(id) ? "☑" : "☐"} ${id}`;
-    };
-    for (let index = 0; index < models.length; index++) labelModel(modelItems[index], models[index].id);
-
-    function refreshFilter(preserveSelection: boolean) {
-      const current = preserveSelection ? modelByItem.get(list.getSelectedItem()!) : undefined;
-      const matching = filterModelsByQuery(models, query);
-      const matchingIds = new Set(matching.map(({ id }) => id));
-      for (const item of actionItems) item.value = query;
-      for (let index = 0; index < modelItems.length; index++) {
-        modelItems[index].value = matchingIds.has(models[index].id) ? query : `\u0000${query}`;
-      }
-      list.setFilter(query);
-      visibleItems = [...actionItems, ...matching.map(({ id }) => modelItems[modelIndexById.get(id)!])];
-      const currentIndex = current ? matching.findIndex(({ id }) => id === current.id) : -1;
-      list.setSelectedIndex(currentIndex >= 0 ? actionItems.length + currentIndex : matching.length ? actionItems.length : 0);
-      status.setText(`${selected.size} selected • ${matching.length} matching / ${models.length} available`);
-      list.invalidate();
-      frame.invalidate();
-      tui.requestRender();
+  while (true) {
+    const matching = filterModelsByQuery(models, query);
+    const changeFilterAction = `Change filter (current: ${query || "all"})`;
+    const modelByOption = new Map<string, string>();
+    const modelOptions = matching.map((model) => {
+      const label = `${selected.has(model.id) ? "☑" : "☐"} ${model.id} — ${model.name}`;
+      modelByOption.set(label, model.id);
+      return label;
+    });
+    const answer = await ctx.ui.select(`Jev routing models — filter: ${query || "all"} (${matching.length})`, [
+      SAVE_ACTION,
+      SELECT_ALL_ACTION,
+      SELECT_NONE_ACTION,
+      changeFilterAction,
+      RESET_ACTION,
+      ...modelOptions,
+    ]);
+    if (!answer) return;
+    if (answer === SAVE_ACTION) {
+      await writeSelection([...selected]);
+      ctx.ui.notify(selected.size ? `Saved ${selected.size} routing model(s).` : "Saved an empty list; Jev routing will be skipped.", "info");
+      return;
     }
-
-    function activate(item: SelectItem) {
-      const action = actionByItem.get(item);
-      if (action === "save") {
-        done({ action: "save", models: [...selected] });
-        return;
-      }
-      if (action === "all") {
-        for (const id of availableIds) selected.add(id);
-      } else if (action === "none") {
-        selected.clear();
-      } else if (action === "reset") {
-        done({ action: "reset" });
-        return;
-      } else {
-        const model = modelByItem.get(item);
-        if (!model) return;
-        selected.has(model.id) ? selected.delete(model.id) : selected.add(model.id);
-        labelModel(item, model.id);
-      }
-      status.setText(`${selected.size} selected • ${filterModelsByQuery(models, query).length} matching / ${models.length} available`);
-      for (let index = 0; index < modelItems.length; index++) labelModel(modelItems[index], models[index].id);
-      list.invalidate();
-      frame.invalidate();
-      tui.requestRender();
+    if (answer === SELECT_ALL_ACTION) {
+      for (const id of availableIds) selected.add(id);
+      continue;
     }
-
-    list.onSelect = activate;
-    list.onCancel = () => done(null);
-    refreshFilter(false);
-    list.setSelectedIndex(models.length ? actionItems.length : 0);
-
-    return {
-      render: (width: number) => frame.render(width),
-      invalidate: () => frame.invalidate(),
-      handleInput(data: string) {
-        const previousQuery = query;
-        if (matchesKey(data, Key.ctrl("n"))) {
-          const index = visibleItems.indexOf(list.getSelectedItem()!);
-          list.setSelectedIndex((index + 1) % visibleItems.length);
-        } else if (matchesKey(data, Key.ctrl("p"))) {
-          const index = visibleItems.indexOf(list.getSelectedItem()!);
-          list.setSelectedIndex((index - 1 + visibleItems.length) % visibleItems.length);
-        } else if (keybindings.matches(data, "tui.select.up") || keybindings.matches(data, "tui.select.down") || keybindings.matches(data, "tui.select.confirm") || keybindings.matches(data, "tui.select.cancel")) {
-          list.handleInput(data);
-        } else {
-          filter.handleInput(data);
-          query = filter.getValue();
-          if (query !== previousQuery) refreshFilter(true);
-        }
-        tui.requestRender();
-      },
-    };
-  });
-  if (!result) return;
-  if (result.action === "reset") {
-    await clearSelection();
-    ctx.ui.notify("Model selection cleared; routing will use all available models.", "info");
-  } else {
-    await writeSelection(result.models);
-    ctx.ui.notify(result.models.length ? `Saved ${result.models.length} routing model(s).` : "Saved an empty list; Jev routing will be skipped.", "info");
+    if (answer === SELECT_NONE_ACTION) {
+      selected.clear();
+      continue;
+    }
+    if (answer === changeFilterAction) {
+      const replacement = await ctx.ui.input(`Change model filter (current: ${query || "all"})`, "Enter provider, model ID, or name (blank shows all)");
+      if (replacement !== undefined) query = replacement.trim();
+      continue;
+    }
+    if (answer === RESET_ACTION) {
+      await clearSelection();
+      ctx.ui.notify("Model selection cleared; routing will use all available models.", "info");
+      return;
+    }
+    const id = modelByOption.get(answer);
+    if (id) selected.has(id) ? selected.delete(id) : selected.add(id);
   }
 }
 
